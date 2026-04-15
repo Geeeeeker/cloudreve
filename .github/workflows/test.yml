@@ -14,7 +14,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 1. 核心修正：必须在macOS环境下构建
+    runs-on: macos-latest
     steps:
       - name: Checkout Cloudreve source with submodules
         uses: actions/checkout@v4
@@ -36,52 +37,51 @@ jobs:
       - name: Install yarn
         run: npm install -g yarn
 
-      - name: Disable PWA plugin in vite config
-        working-directory: assets
-        run: |
-          # 备份原始配置
-          cp vite.config.ts vite.config.ts.bak
-          # 使用 sed 删除 VitePWA 插件的导入和使用
-          sed -i '/import { VitePWA } from/d' vite.config.ts
-          sed -i '/VitePWA({/,/}),/d' vite.config.ts
-          # 验证修改（可选）
-          grep -q "VitePWA" vite.config.ts && echo "PWA still present" || echo "PWA disabled"
-
+      # 2. 构建前端静态资源
       - name: Build frontend assets
-        run: |
-          export COMMIT_SHA=$(git rev-parse --short HEAD)
-          export VERSION=$(git describe --tags --always)
-          chmod +x .build/build-assets.sh
-          ./.build/build-assets.sh $VERSION
-
-      - name: Restore original vite config (optional)
         working-directory: assets
-        run: cp vite.config.ts.bak vite.config.ts || true
+        run: |
+          yarn install
+          yarn run build
 
+      # 3. 将前端资源嵌入到Go二进制文件中
+      - name: Install statik and embed assets
+        run: |
+          # 安装statik，用于将静态文件嵌入Go二进制
+          go install github.com/rakyll/statik@latest
+          # 将assets/build目录下的资源嵌入
+          statik -src=assets/build/ -include=*.html,*.js,*.json,*.css,*.png,*.svg,*.ico -f
+
+      # 4. 针对iOS平台进行交叉编译
       - name: Cross compile for iOS
         run: |
           go clean -cache
           if [ "${{ github.event.inputs.architecture }}" = "arm64" ]; then
-            export GOOS=ios
+            export GOOS=darwin
             export GOARCH=arm64
             export OUTPUT_NAME="cloudreve_ios_arm64"
           else
-            export GOOS=ios
+            export GOOS=darwin
             export GOARCH=arm
             export OUTPUT_NAME="cloudreve_ios_armv7"
           fi
-          export CGO_ENABLED=0
-          export CC=
+          
+          # 关键：必须启用CGO并指定SDK路径
+          export CGO_ENABLED=1
+          export SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          export CC="clang -arch $GOARCH -isysroot $SDK_PATH -mios-version-min=12.0"
+          
           export COMMIT_SHA=$(git rev-parse --short HEAD)
           export VERSION=$(git describe --tags --always)
+          
+          # 开始编译
           go build -a -o $OUTPUT_NAME \
-            -ldflags="-s -w -buildmode=pie \
-              -X 'github.com/cloudreve/Cloudreve/v4/application/constants.BackendVersion=$VERSION' \
-              -X 'github.com/cloudreve/Cloudreve/v4/application/constants.LastCommit=$COMMIT_SHA'"
-          tar -czf ${OUTPUT_NAME}.tar.gz $OUTPUT_NAME
+            -ldflags="-s -w \
+              -X 'github.com/cloudreve/Cloudreve/v3/application/constants.BackendVersion=$VERSION' \
+              -X 'github.com/cloudreve/Cloudreve/v3/application/constants.LastCommit=$COMMIT_SHA'"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: cloudreve-ios-${{ github.event.inputs.architecture }}
-          path: cloudreve_ios_*.tar.gz
+          path: cloudreve_ios_*
