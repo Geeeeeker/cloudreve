@@ -1,4 +1,4 @@
-- name: Build backend for iOS
+name: Build backend for iOS
   run: |
     # 1. 清理构建缓存，避免残留的 C 编译对象
     go clean -cache
