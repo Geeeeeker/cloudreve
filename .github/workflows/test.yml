@@ -16,10 +16,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Cloudreve source
+      - name: Checkout Cloudreve source with submodules
         uses: actions/checkout@v4
         with:
           repository: 'cloudreve/Cloudreve'
+          submodules: 'recursive'
           fetch-depth: 0
 
       - name: Set up Go
@@ -32,16 +33,18 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install pnpm
+        run: npm install -g pnpm
+
       - name: Build frontend assets
         run: |
-          export COMMIT_SHA=$(git rev-parse --short HEAD)
-          export VERSION=$(git describe --tags --always)
-          chmod +x ./.build/build-assets.sh
-          ./.build/build-assets.sh $VERSION
-          cd application/statics
-          mkdir -p static
-          unzip -q assets.zip -d static
-          cd ../..
+          cd assets
+          pnpm install
+          pnpm run build
+          cd ..
+          # 将构建产物复制到 application/statics/static 目录（Go embed 需要）
+          mkdir -p application/statics/static
+          cp -r assets/dist/* application/statics/static/
 
       - name: Cross compile for iOS
         run: |
