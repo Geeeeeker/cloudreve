@@ -14,7 +14,6 @@ on:
 
 jobs:
   build:
-    # 1. 核心修正：必须在macOS环境下构建
     runs-on: macos-latest
     steps:
       - name: Checkout Cloudreve source with submodules
@@ -32,27 +31,24 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '18.20.4'  # 使用稳定 LTS 版本，避免 macOS 上的兼容问题
 
       - name: Install yarn
         run: npm install -g yarn
 
-      # 2. 构建前端静态资源
       - name: Build frontend assets
         working-directory: assets
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096   # 增加内存上限，防止 SIGABRT
         run: |
           yarn install
           yarn run build
 
-      # 3. 将前端资源嵌入到Go二进制文件中
       - name: Install statik and embed assets
         run: |
-          # 安装statik，用于将静态文件嵌入Go二进制
           go install github.com/rakyll/statik@latest
-          # 将assets/build目录下的资源嵌入
           statik -src=assets/build/ -include=*.html,*.js,*.json,*.css,*.png,*.svg,*.ico -f
 
-      # 4. 针对iOS平台进行交叉编译
       - name: Cross compile for iOS
         run: |
           go clean -cache
@@ -66,7 +62,6 @@ jobs:
             export OUTPUT_NAME="cloudreve_ios_armv7"
           fi
           
-          # 关键：必须启用CGO并指定SDK路径
           export CGO_ENABLED=1
           export SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
           export CC="clang -arch $GOARCH -isysroot $SDK_PATH -mios-version-min=12.0"
@@ -74,14 +69,16 @@ jobs:
           export COMMIT_SHA=$(git rev-parse --short HEAD)
           export VERSION=$(git describe --tags --always)
           
-          # 开始编译
           go build -a -o $OUTPUT_NAME \
             -ldflags="-s -w \
               -X 'github.com/cloudreve/Cloudreve/v3/application/constants.BackendVersion=$VERSION' \
               -X 'github.com/cloudreve/Cloudreve/v3/application/constants.LastCommit=$COMMIT_SHA'"
 
+      - name: Package binary
+        run: tar -czf ${OUTPUT_NAME}.tar.gz $OUTPUT_NAME
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: cloudreve-ios-${{ github.event.inputs.architecture }}
-          path: cloudreve_ios_*
+          path: cloudreve_ios_*.tar.gz
