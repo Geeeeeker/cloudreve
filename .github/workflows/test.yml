@@ -33,18 +33,30 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install pnpm
-        run: npm install -g pnpm
+      - name: Install yarn
+        run: npm install -g yarn
+
+      - name: Disable PWA plugin in vite config
+        working-directory: assets
+        run: |
+          # 备份原始配置
+          cp vite.config.ts vite.config.ts.bak
+          # 使用 sed 删除 VitePWA 插件的导入和使用
+          sed -i '/import { VitePWA } from/d' vite.config.ts
+          sed -i '/VitePWA({/,/}),/d' vite.config.ts
+          # 验证修改（可选）
+          grep -q "VitePWA" vite.config.ts && echo "PWA still present" || echo "PWA disabled"
 
       - name: Build frontend assets
         run: |
-          cd assets
-          pnpm install
-          pnpm run build
-          cd ..
-          # 将构建产物复制到 application/statics/static 目录（Go embed 需要）
-          mkdir -p application/statics/static
-          cp -r assets/dist/* application/statics/static/
+          export COMMIT_SHA=$(git rev-parse --short HEAD)
+          export VERSION=$(git describe --tags --always)
+          chmod +x .build/build-assets.sh
+          ./.build/build-assets.sh $VERSION
+
+      - name: Restore original vite config (optional)
+        working-directory: assets
+        run: cp vite.config.ts.bak vite.config.ts || true
 
       - name: Cross compile for iOS
         run: |
