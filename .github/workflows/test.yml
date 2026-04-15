@@ -1,32 +1,72 @@
-name: Build backend for iOS
-  run: |
-    # 1. 清理构建缓存，避免残留的 C 编译对象
-    go clean -cache
-    
-    # 2. 根据选择的目标架构设置编译参数
-    if [ "${{ github.event.inputs.architecture }}" = "arm64" ]; then
-      export GOOS=ios          # 必须使用 ios 作为目标操作系统
-      export GOARCH=arm64
-      export OUTPUT_NAME="cloudreve_ios_arm64"
-    else
-      export GOOS=ios          # 必须使用 ios 作为目标操作系统
-      export GOARCH=arm
-      export OUTPUT_NAME="cloudreve_ios_armv7"
-    fi
-    
-    # 3. 关键环境变量设置
-    export CGO_ENABLED=0       # 彻底禁用 CGO
-    export CC=                 # 清空 CC 环境变量，阻止调用任何 C 编译器
-    
-    # 4. 获取版本信息
-    VERSION=$(git describe --tags --always --dirty)
-    COMMIT_SHA=$(git rev-parse --short HEAD)
-    
-    # 5. 执行编译
-    go build -a -o $OUTPUT_NAME \
-      -ldflags="-s -w -buildmode=pie \
-        -X 'github.com/cloudreve/Cloudreve/v4/application/constants.BackendVersion=$VERSION' \
-        -X 'github.com/cloudreve/Cloudreve/v4/application/constants.LastCommit=$COMMIT_SHA'"
-    
-    # 6. 打包压缩
-    tar -czf ${OUTPUT_NAME}.tar.gz $OUTPUT_NAME
+name: Build Cloudreve for iOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      architecture:
+        description: 'Target Architecture'
+        required: true
+        default: 'arm64'
+        type: choice
+        options:
+          - arm64
+          - armv7
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Cloudreve source
+        uses: actions/checkout@v4
+        with:
+          repository: 'cloudreve/Cloudreve'
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build frontend assets
+        run: |
+          export COMMIT_SHA=$(git rev-parse --short HEAD)
+          export VERSION=$(git describe --tags --always)
+          chmod +x ./.build/build-assets.sh
+          ./.build/build-assets.sh $VERSION
+          cd application/statics
+          mkdir -p static
+          unzip -q assets.zip -d static
+          cd ../..
+
+      - name: Cross compile for iOS
+        run: |
+          go clean -cache
+          if [ "${{ github.event.inputs.architecture }}" = "arm64" ]; then
+            export GOOS=ios
+            export GOARCH=arm64
+            export OUTPUT_NAME="cloudreve_ios_arm64"
+          else
+            export GOOS=ios
+            export GOARCH=arm
+            export OUTPUT_NAME="cloudreve_ios_armv7"
+          fi
+          export CGO_ENABLED=0
+          export CC=
+          export COMMIT_SHA=$(git rev-parse --short HEAD)
+          export VERSION=$(git describe --tags --always)
+          go build -a -o $OUTPUT_NAME \
+            -ldflags="-s -w -buildmode=pie \
+              -X 'github.com/cloudreve/Cloudreve/v4/application/constants.BackendVersion=$VERSION' \
+              -X 'github.com/cloudreve/Cloudreve/v4/application/constants.LastCommit=$COMMIT_SHA'"
+          tar -czf ${OUTPUT_NAME}.tar.gz $OUTPUT_NAME
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudreve-ios-${{ github.event.inputs.architecture }}
+          path: cloudreve_ios_*.tar.gz
