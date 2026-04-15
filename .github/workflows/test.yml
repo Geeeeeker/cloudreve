@@ -1,92 +1,32 @@
-# .github/workflows/build-cloudreve-ios.yml
-name: Build Cloudreve for iOS
-
-# 允许手动触发工作流，并支持选择目标架构
-on:
-  workflow_dispatch:
-    inputs:
-      architecture:
-        description: 'Target Architecture'
-        required: true
-        default: 'arm64'
-        type: choice
-        options:
-          - arm64
-          - armv7
-
-# 单个任务即可完成编译
-jobs:
-  build:
-    runs-on: macos-latest
-    steps:
-      # 1. 检出代码，包括前端子模块
-      - name: Checkout code with submodules
-        uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
-          fetch-depth: 0
-
-      # 2. 设置 Go 语言环境
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-
-      # 3. 设置 Node.js 环境 (用于构建前端)
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      # 4. 构建前端静态资源 (通用步骤)
-      - name: Build frontend assets
-        run: |
-          # 获取版本号和 Git Commit SHA
-          export COMMIT_SHA=$(git rev-parse --short HEAD)
-          export VERSION=$(git describe --tags)
-          
-          # 执行官方构建脚本
-          chmod +x ./.build/build-assets.sh
-          ./.build/build-assets.sh $VERSION
-          
-          # 将生成的静态资源打包并嵌入
-          cd application/statics
-          mkdir -p static
-          unzip -q assets.zip -d static
-          cd ../..
-
-      # 5. 根据选择的架构执行交叉编译
-      - name: Cross compile for ${{ github.event.inputs.architecture }}
-        run: |
-          export COMMIT_SHA=$(git rev-parse --short HEAD)
-          export VERSION=$(git describe --tags)
-          
-          # 确定编译目标架构和输出文件名
-          if [ "${{ github.event.inputs.architecture }}" = "arm64" ]; then
-            export GOOS=darwin
-            export GOARCH=arm64
-            export OUTPUT_NAME="cloudreve_ios_arm64"
-          else
-            export GOOS=darwin
-            export GOARCH=arm
-            export OUTPUT_NAME="cloudreve_ios_armv7"
-          fi
-          
-          # 禁用 CGO 以生成静态链接的二进制文件
-          export CGO_ENABLED=0
-          
-          # 开始编译
-          go build -a -o $OUTPUT_NAME \
-            -ldflags "-s -w \
-              -X 'github.com/cloudreve/Cloudreve/v4/application/constants.BackendVersion=$VERSION' \
-              -X 'github.com/cloudreve/Cloudreve/v4/application/constants.LastCommit=$COMMIT_SHA'"
-          
-          # 压缩二进制文件
-          tar -czf ${OUTPUT_NAME}.tar.gz $OUTPUT_NAME
-
-      # 6. 上传编译好的压缩包作为工作流产出物
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: cloudreve-ios-${{ github.event.inputs.architecture }}
-          path: cloudreve_ios_*.tar.gz
+- name: Build backend for iOS
+  run: |
+    # 1. 清理构建缓存，避免残留的 C 编译对象
+    go clean -cache
+    
+    # 2. 根据选择的目标架构设置编译参数
+    if [ "${{ github.event.inputs.architecture }}" = "arm64" ]; then
+      export GOOS=ios          # 必须使用 ios 作为目标操作系统
+      export GOARCH=arm64
+      export OUTPUT_NAME="cloudreve_ios_arm64"
+    else
+      export GOOS=ios          # 必须使用 ios 作为目标操作系统
+      export GOARCH=arm
+      export OUTPUT_NAME="cloudreve_ios_armv7"
+    fi
+    
+    # 3. 关键环境变量设置
+    export CGO_ENABLED=0       # 彻底禁用 CGO
+    export CC=                 # 清空 CC 环境变量，阻止调用任何 C 编译器
+    
+    # 4. 获取版本信息
+    VERSION=$(git describe --tags --always --dirty)
+    COMMIT_SHA=$(git rev-parse --short HEAD)
+    
+    # 5. 执行编译
+    go build -a -o $OUTPUT_NAME \
+      -ldflags="-s -w -buildmode=pie \
+        -X 'github.com/cloudreve/Cloudreve/v4/application/constants.BackendVersion=$VERSION' \
+        -X 'github.com/cloudreve/Cloudreve/v4/application/constants.LastCommit=$COMMIT_SHA'"
+    
+    # 6. 打包压缩
+    tar -czf ${OUTPUT_NAME}.tar.gz $OUTPUT_NAME
