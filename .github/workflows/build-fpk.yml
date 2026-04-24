@@ -104,10 +104,18 @@ jobs:
         run: |
           cat > ${{ env.PROJECT_DIR }}/cmd/install_init <<'EOF'
           #!/bin/sh
-          # Cloudreve installation script - placeholder
           exit 0
           EOF
           chmod +x ${{ env.PROJECT_DIR }}/cmd/install_init
+
+      - name: Create cmd/install_callback
+        shell: bash
+        run: |
+          cat > ${{ env.PROJECT_DIR }}/cmd/install_callback <<'EOF'
+          #!/bin/sh
+          exit 0
+          EOF
+          chmod +x ${{ env.PROJECT_DIR }}/cmd/install_callback
 
       - name: Create config files
         shell: bash
