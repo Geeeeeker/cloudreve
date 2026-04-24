@@ -52,7 +52,6 @@ jobs:
       - name: Generate manifest and start script
         shell: bash
         run: |
-          # 键值对格式 manifest（fnpack 实际使用的格式）
           cat > ${{ env.PROJECT_DIR }}/manifest <<'EOF'
           appname                    = cloudreve
           version                    = 4.15.0
@@ -99,6 +98,16 @@ jobs:
           exec app/start.sh
           EOF
           chmod +x ${{ env.PROJECT_DIR }}/cmd/main
+
+      - name: Create cmd/install_init
+        shell: bash
+        run: |
+          cat > ${{ env.PROJECT_DIR }}/cmd/install_init <<'EOF'
+          #!/bin/sh
+          # Cloudreve installation script - placeholder
+          exit 0
+          EOF
+          chmod +x ${{ env.PROJECT_DIR }}/cmd/install_init
 
       - name: Create config files
         shell: bash
