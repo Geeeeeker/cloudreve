@@ -23,7 +23,6 @@ jobs:
         run: |
           Invoke-WebRequest -Uri https://github.com/snltty/fnpackup/releases/download/v1.1.2/fnpackup-win-x64-v1.1.2.zip -OutFile fnpackup.zip
           Expand-Archive -Path fnpackup.zip -DestinationPath .
-          # 检查解压后的真实路径：当前目录下会出现 fnpackup-win-x64 文件夹
           if (Test-Path fnpackup-win-x64\fnpack.exe) {
             Write-Host "fnpack.exe found successfully"
           } else {
@@ -37,11 +36,11 @@ jobs:
         run: |
           mkdir -p ${{ env.PROJECT_DIR }}/app/bin
           # amd64
-          wget https://github.com/cloudreve/cloudreve/releases/download/${{ env.CLOUDREVE_VERSION }}/cloudreve_${{ env.CLOUDREVE_VERSION }}_linux_amd64.tar.gz
+          curl -L -o cloudreve_${{ env.CLOUDREVE_VERSION }}_linux_amd64.tar.gz https://github.com/cloudreve/cloudreve/releases/download/${{ env.CLOUDREVE_VERSION }}/cloudreve_${{ env.CLOUDREVE_VERSION }}_linux_amd64.tar.gz
           tar -zxvf cloudreve_${{ env.CLOUDREVE_VERSION }}_linux_amd64.tar.gz -C ${{ env.PROJECT_DIR }}/app/bin
           mv ${{ env.PROJECT_DIR }}/app/bin/cloudreve ${{ env.PROJECT_DIR }}/app/bin/cloudreve-amd64
           # arm64
-          wget https://github.com/cloudreve/cloudreve/releases/download/${{ env.CLOUDREVE_VERSION }}/cloudreve_${{ env.CLOUDREVE_VERSION }}_linux_arm64.tar.gz
+          curl -L -o cloudreve_${{ env.CLOUDREVE_VERSION }}_linux_arm64.tar.gz https://github.com/cloudreve/cloudreve/releases/download/${{ env.CLOUDREVE_VERSION }}/cloudreve_${{ env.CLOUDREVE_VERSION }}_linux_arm64.tar.gz
           tar -zxvf cloudreve_${{ env.CLOUDREVE_VERSION }}_linux_arm64.tar.gz -C ${{ env.PROJECT_DIR }}/app/bin
           mv ${{ env.PROJECT_DIR }}/app/bin/cloudreve ${{ env.PROJECT_DIR }}/app/bin/cloudreve-arm64
           rm *.tar.gz
