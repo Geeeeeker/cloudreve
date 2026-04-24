@@ -52,20 +52,24 @@ jobs:
       - name: Generate manifest and start script
         shell: bash
         run: |
-          cat > ${{ env.PROJECT_DIR }}/manifest.json <<'EOF'
-          {
-            "name": "cloudreve",
-            "display_name": "Cloudreve云盘",
-            "version": "4.15.0",
-            "desc": "Cloudreve 公有云文件系统",
-            "arch": ["x86_64", "arm64"],
-            "executable": "app/start.sh",
-            "icon": "ICON.PNG",
-            "icon_light": "ICON.PNG",
-            "package_format": "native"
-          }
+          # 键值对格式 manifest（fnpack 实际使用的格式）
+          cat > ${{ env.PROJECT_DIR }}/manifest <<'EOF'
+          appname                    = cloudreve
+          version                    = 4.15.0
+          display_name               = Cloudreve云盘
+          desc                       = Cloudreve 公有云文件系统，支持WebDAV。多架构合一，适用于 x86_64 和 arm64 飞牛系统。
+          platform                   = all
+          source                     = thirdparty
+          maintainer                 = Geeeeeker
+          maintainer_url             = https://github.com/Geeeeeker/cloudreve
+          distributor                = Geeeeeker
+          distributor_url            = https://github.com/Geeeeeker/cloudreve
+          executable                 = app/start.sh
+          icon                       = ICON.PNG
+          icon_light                 = ICON.PNG
+          package_format             = native
+          arch                       = x86_64 arm64
           EOF
-          cp ${{ env.PROJECT_DIR }}/manifest.json ${{ env.PROJECT_DIR }}/manifest
 
           cat > ${{ env.PROJECT_DIR }}/app/start.sh <<'EOF'
           #!/bin/bash
