@@ -96,6 +96,15 @@ jobs:
           EOF
           chmod +x ${{ env.PROJECT_DIR }}/cmd/main
 
+      - name: Create config files
+        shell: bash
+        run: |
+          mkdir -p ${{ env.PROJECT_DIR }}/config
+          # privilege 文件：定义应用权限（暂时留空对象）
+          echo '{}' > ${{ env.PROJECT_DIR }}/config/privilege
+          # 如果有 config.json 也一并生成（基础配置）
+          echo '{}' > ${{ env.PROJECT_DIR }}/config/config.json
+
       - name: Debug file list
         shell: cmd
         run: dir cloudreve /s /b
