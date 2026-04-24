@@ -127,17 +127,17 @@ jobs:
         shell: cmd
         run: fnpackup-win-x64\fnpack.exe build %PROJECT_DIR%
 
-      - name: Rename fpk output
+      - name: Move fpk output to project directory
         shell: powershell
         run: |
-          $src = "${{ env.PROJECT_DIR }}\cloudreve.fpk"
+          $src = "cloudreve.fpk"
           $dst = "${{ env.PROJECT_DIR }}\cloudreve_${{ env.CLOUDREVE_VERSION }}_all.fpk"
           if (Test-Path $src) {
-            Move-Item $src $dst
-            Write-Host "Renamed to $dst"
+            Move-Item $src $dst -Force
+            Write-Host "Moved $src to $dst"
           } else {
-            Write-Host "Source file $src not found"
-            Get-ChildItem ${{ env.PROJECT_DIR }} -Name
+            Write-Host "Source file $src not found, listing current directory:"
+            Get-ChildItem -Name
             exit 1
           }
 
