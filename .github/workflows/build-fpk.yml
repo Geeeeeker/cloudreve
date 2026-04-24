@@ -22,13 +22,13 @@ jobs:
         shell: powershell
         run: |
           Invoke-WebRequest -Uri https://github.com/snltty/fnpackup/releases/download/v1.1.2/fnpackup-win-x64-v1.1.2.zip -OutFile fnpackup.zip
-          Expand-Archive -Path fnpackup.zip -DestinationPath fnpackup
-          # 检查 fnpack.exe 是否存在，若不在根目录请根据输出调整路径
-          if (Test-Path fnpackup\fnpack.exe) {
-            Write-Host "fnpack.exe found"
+          Expand-Archive -Path fnpackup.zip -DestinationPath .
+          # 检查解压后的真实路径：当前目录下会出现 fnpackup-win-x64 文件夹
+          if (Test-Path fnpackup-win-x64\fnpack.exe) {
+            Write-Host "fnpack.exe found successfully"
           } else {
-            Write-Host "fnpack.exe not found, listing all files..."
-            Get-ChildItem fnpackup -Recurse -Name
+            Write-Host "fnpack.exe not found, listing files to debug..."
+            Get-ChildItem fnpackup-win-x64 -Recurse -Name
             exit 1
           }
 
@@ -49,7 +49,7 @@ jobs:
       - name: Build multi-arch fpk
         shell: cmd
         run: |
-          fnpackup\fnpack.exe build %PROJECT_DIR%
+          fnpackup-win-x64\fnpack.exe build %PROJECT_DIR%
 
       - name: Upload fpk artifact
         uses: actions/upload-artifact@v4
