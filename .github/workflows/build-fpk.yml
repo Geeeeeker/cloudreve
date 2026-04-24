@@ -99,7 +99,7 @@ jobs:
           EOF
           chmod +x ${{ env.PROJECT_DIR }}/cmd/main
 
-      - name: Create all required cmd scripts (install/uninstall/upgrade)
+      - name: Create all required cmd scripts
         shell: bash
         run: |
           for script in install_init install_callback uninstall_init uninstall_callback upgrade_init upgrade_callback start_init stop_init; do
@@ -127,11 +127,25 @@ jobs:
         shell: cmd
         run: fnpackup-win-x64\fnpack.exe build %PROJECT_DIR%
 
+      - name: Rename fpk output
+        shell: powershell
+        run: |
+          $src = "${{ env.PROJECT_DIR }}\cloudreve.fpk"
+          $dst = "${{ env.PROJECT_DIR }}\cloudreve_${{ env.CLOUDREVE_VERSION }}_all.fpk"
+          if (Test-Path $src) {
+            Move-Item $src $dst
+            Write-Host "Renamed to $dst"
+          } else {
+            Write-Host "Source file $src not found"
+            Get-ChildItem ${{ env.PROJECT_DIR }} -Name
+            exit 1
+          }
+
       - name: Upload fpk artifact
         uses: actions/upload-artifact@v4
         with:
           name: cloudreve-fpk-multiarch
-          path: ${{ env.PROJECT_DIR }}/target/cloudreve_${{ env.CLOUDREVE_VERSION }}_all.fpk
+          path: ${{ env.PROJECT_DIR }}/cloudreve_${{ env.CLOUDREVE_VERSION }}_all.fpk
           if-no-files-found: error
 
   release:
