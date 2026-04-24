@@ -99,41 +99,16 @@ jobs:
           EOF
           chmod +x ${{ env.PROJECT_DIR }}/cmd/main
 
-      - name: Create cmd/install_init
+      - name: Create all required cmd scripts (install/uninstall/upgrade)
         shell: bash
         run: |
-          cat > ${{ env.PROJECT_DIR }}/cmd/install_init <<'EOF'
+          for script in install_init install_callback uninstall_init uninstall_callback upgrade_init upgrade_callback start_init stop_init; do
+            cat > ${{ env.PROJECT_DIR }}/cmd/$script <<'EOF'
           #!/bin/sh
           exit 0
           EOF
-          chmod +x ${{ env.PROJECT_DIR }}/cmd/install_init
-
-      - name: Create cmd/install_callback
-        shell: bash
-        run: |
-          cat > ${{ env.PROJECT_DIR }}/cmd/install_callback <<'EOF'
-          #!/bin/sh
-          exit 0
-          EOF
-          chmod +x ${{ env.PROJECT_DIR }}/cmd/install_callback
-
-      - name: Create cmd/uninstall_init
-        shell: bash
-        run: |
-          cat > ${{ env.PROJECT_DIR }}/cmd/uninstall_init <<'EOF'
-          #!/bin/sh
-          exit 0
-          EOF
-          chmod +x ${{ env.PROJECT_DIR }}/cmd/uninstall_init
-
-      - name: Create cmd/uninstall_callback
-        shell: bash
-        run: |
-          cat > ${{ env.PROJECT_DIR }}/cmd/uninstall_callback <<'EOF'
-          #!/bin/sh
-          exit 0
-          EOF
-          chmod +x ${{ env.PROJECT_DIR }}/cmd/uninstall_callback
+            chmod +x ${{ env.PROJECT_DIR }}/cmd/$script
+          done
 
       - name: Create config files
         shell: bash
