@@ -1,0 +1,115 @@
+# .github/workflows/build-fpk.yml
+name: Build Multi-Arch Cloudreve fpk and Release
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'cloudreve/**'
+      - '.github/workflows/build-fpk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDREVE_VERSION: "4.15.0"
+      PROJECT_DIR: "cloudreve"      # 项目文件夹名
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Cloudreve binaries
+        run: |
+          mkdir -p ${{ env.PROJECT_DIR }}/app/bin
+          # 下载 amd64
+          wget https://github.com/cloudreve/cloudreve/releases/download/${{ env.CLOUDREVE_VERSION }}/cloudreve_${{ env.CLOUDREVE_VERSION }}_linux_amd64.tar.gz
+          tar -zxvf cloudreve_${{ env.CLOUDREVE_VERSION }}_linux_amd64.tar.gz -C ${{ env.PROJECT_DIR }}/app/bin
+          mv ${{ env.PROJECT_DIR }}/app/bin/cloudreve ${{ env.PROJECT_DIR }}/app/bin/cloudreve-amd64
+          # 下载 arm64
+          wget https://github.com/cloudreve/cloudreve/releases/download/${{ env.CLOUDREVE_VERSION }}/cloudreve_${{ env.CLOUDREVE_VERSION }}_linux_arm64.tar.gz
+          tar -zxvf cloudreve_${{ env.CLOUDREVE_VERSION }}_linux_arm64.tar.gz -C ${{ env.PROJECT_DIR }}/app/bin
+          mv ${{ env.PROJECT_DIR }}/app/bin/cloudreve ${{ env.PROJECT_DIR }}/app/bin/cloudreve-arm64
+          rm *.tar.gz
+
+      - name: Make fnpack executable
+        run: chmod +x ./fnpack
+
+      - name: Build multi-arch fpk
+        run: ./fnpack build ${{ env.PROJECT_DIR }}
+
+      # 产物文件名为 project_version_all.fpk，需确认实际名称
+      - name: Upload fpk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudreve-fpk-multiarch
+          path: ${{ env.PROJECT_DIR }}/target/cloudreve_${{ env.CLOUDREVE_VERSION }}_all.fpk
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      CLOUDREVE_VERSION: "4.15.0"
+      TAG_NAME: cloudreve-fpk-v4.15.0
+      RELEASE_FILE: cloudreve_4.15.0_all.fpk
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cloudreve-fpk-multiarch
+          path: ./
+
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: Cloudreve ${{ env.CLOUDREVE_VERSION }} fpk (Multi-arch)
+          body: |
+            Cloudreve ${{ env.CLOUDREVE_VERSION }} 多架构 fpk 安装包。
+            - 适用于 x86_64 及 arm64 的飞牛系统。
+            - 仓库地址：https://github.com/Geeeeeker/cloudreve
+          files: ${{ env.RELEASE_FILE }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-json:
+    needs: release
+    runs-on: ubuntu-latest
+    env:
+      CLOUDREVE_VERSION: "4.15.0"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # 使用 Personal Access Token 以便后续推送能够触发其他工作流
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update fnpack.json
+        run: |
+          # 构造下载链接（注意 tag 名与 release job 保持一致）
+          DOWNLOAD_URL="https://github.com/Geeeeeker/cloudreve/releases/download/cloudreve-fpk-v${CLOUDREVE_VERSION}/cloudreve_${CLOUDREVE_VERSION}_all.fpk"
+          # 使用 jq 更新或插入 cloudreve 条目
+          jq --arg url "$DOWNLOAD_URL" --arg ver "$CLOUDREVE_VERSION" \
+            '.Cloudreve = {
+                "display_name": "Cloudreve云盘",
+                "platform": "all",
+                "desc": "☁️Cloudreve 是一个支持多家云存储驱动的公有云文件系统。",
+                "labels": "原生,工具,存储",
+                "version": $ver,
+                "download_url": $url,
+                "distributor": "Geeeeeker",
+                "distributor_url": "https://github.com/Geeeeeker/cloudreve",
+                "bug_report_url": "https://github.com/Geeeeeker/cloudreve/issues",
+                "install_type": "存储空间",
+                "size": "待填",
+                "changelog": "首次发布多架构fpk"
+            }' fnpack.json > tmp.json && mv tmp.json fnpack.json
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add fnpack.json
+          git commit -m "chore: update fnpack.json with Cloudreve release link [skip ci]"
+          git push
