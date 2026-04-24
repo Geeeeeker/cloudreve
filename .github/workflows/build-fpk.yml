@@ -52,7 +52,6 @@ jobs:
       - name: Generate manifest and start script
         shell: bash
         run: |
-          # 写 manifest.json
           cat > ${{ env.PROJECT_DIR }}/manifest.json <<'EOF'
           {
             "name": "cloudreve",
@@ -66,11 +65,8 @@ jobs:
             "package_format": "native"
           }
           EOF
-
-          # 复制为无扩展名的 manifest（兼容 fnpack 的可能要求）
           cp ${{ env.PROJECT_DIR }}/manifest.json ${{ env.PROJECT_DIR }}/manifest
 
-          # 写启动脚本
           cat > ${{ env.PROJECT_DIR }}/app/start.sh <<'EOF'
           #!/bin/bash
           ARCH=$(uname -m)
@@ -88,8 +84,17 @@ jobs:
               ;;
           esac
           EOF
-
           chmod +x ${{ env.PROJECT_DIR }}/app/start.sh
+
+      - name: Create cmd/main entry point
+        shell: bash
+        run: |
+          mkdir -p ${{ env.PROJECT_DIR }}/cmd
+          cat > ${{ env.PROJECT_DIR }}/cmd/main <<'EOF'
+          #!/bin/sh
+          exec app/start.sh
+          EOF
+          chmod +x ${{ env.PROJECT_DIR }}/cmd/main
 
       - name: Debug file list
         shell: cmd
