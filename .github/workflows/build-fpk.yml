@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest          # ✅ 改为 Windows
+    runs-on: windows-latest
     env:
       CLOUDREVE_VERSION: "4.15.0"
       PROJECT_DIR: "cloudreve"
@@ -23,16 +23,16 @@ jobs:
         run: |
           Invoke-WebRequest -Uri https://github.com/snltty/fnpackup/releases/download/v1.1.2/fnpackup-win-x64-v1.1.2.zip -OutFile fnpackup.zip
           Expand-Archive -Path fnpackup.zip -DestinationPath fnpackup
-          # 假设 fnpack.exe 就在解压后的根目录（若在子目录请自行调整）
+          # 检查 fnpack.exe 是否存在，若不在根目录请根据输出调整路径
           if (Test-Path fnpackup\fnpack.exe) {
-            echo "fnpack.exe found"
+            Write-Host "fnpack.exe found"
           } else {
-            echo "fnpack.exe not found, listing files..."
+            Write-Host "fnpack.exe not found, listing all files..."
             Get-ChildItem fnpackup -Recurse -Name
             exit 1
           }
 
-      - name: Download Cloudreve binaries (Windows)
+      - name: Download Cloudreve binaries
         shell: bash
         run: |
           mkdir -p ${{ env.PROJECT_DIR }}/app/bin
@@ -46,7 +46,7 @@ jobs:
           mv ${{ env.PROJECT_DIR }}/app/bin/cloudreve ${{ env.PROJECT_DIR }}/app/bin/cloudreve-arm64
           rm *.tar.gz
 
-      - name: Build multi-arch fpk (Windows)
+      - name: Build multi-arch fpk
         shell: cmd
         run: |
           fnpackup\fnpack.exe build %PROJECT_DIR%
@@ -60,7 +60,7 @@ jobs:
 
   release:
     needs: build
-    runs-on: ubuntu-latest          # release 过程无需 Windows
+    runs-on: ubuntu-latest
     env:
       CLOUDREVE_VERSION: "4.15.0"
       TAG_NAME: cloudreve-fpk-v4.15.0
@@ -88,4 +88,35 @@ jobs:
   update-json:
     needs: release
     runs-on: ubuntu-latest
-    # ... 保持不变
+    env:
+      CLOUDREVE_VERSION: "4.15.0"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update fnpack.json with release link
+        run: |
+          DOWNLOAD_URL="https://github.com/Geeeeeker/cloudreve/releases/download/cloudreve-fpk-v${CLOUDREVE_VERSION}/cloudreve_${CLOUDREVE_VERSION}_all.fpk"
+          jq --arg url "$DOWNLOAD_URL" --arg ver "$CLOUDREVE_VERSION" \
+            '.Cloudreve = {
+                "display_name": "Cloudreve云盘",
+                "platform": "all",
+                "desc": "☁️Cloudreve 是一个支持多家云存储驱动的公有云文件系统。",
+                "labels": "原生,工具,存储",
+                "version": $ver,
+                "download_url": $url,
+                "distributor": "Geeeeeker",
+                "distributor_url": "https://github.com/Geeeeeker/cloudreve",
+                "bug_report_url": "https://github.com/Geeeeeker/cloudreve/issues",
+                "install_type": "存储空间",
+                "size": "待填",
+                "changelog": "首次发布多架构fpk"
+            }' fnpack.json > tmp.json && mv tmp.json fnpack.json
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add fnpack.json
+          git commit -m "chore: update fnpack.json with Cloudreve release link [skip ci]" || echo "No changes to commit"
+          git push
