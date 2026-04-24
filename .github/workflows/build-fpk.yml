@@ -45,13 +45,16 @@ jobs:
           mv ${{ env.PROJECT_DIR }}/app/bin/cloudreve ${{ env.PROJECT_DIR }}/app/bin/cloudreve-arm64
           rm *.tar.gz
 
-      - name: Generate manifest, startup script, and icon
+      - name: Download application icon
+        shell: powershell
+        run: |
+          $dest = "${{ env.PROJECT_DIR }}\cloudreve.png"
+          Invoke-WebRequest -Uri "https://avatars.githubusercontent.com/u/48898462?s=200&v=4" -OutFile $dest
+          Copy-Item $dest "${{ env.PROJECT_DIR }}\cloudreve_light.png"
+
+      - name: Generate manifest and startup script
         shell: bash
         run: |
-          # 下载图标
-          curl -L -o ${{ env.PROJECT_DIR }}/cloudreve.png https://avatars.githubusercontent.com/u/48898462?s=200&v=4
-          cp ${{ env.PROJECT_DIR }}/cloudreve.png ${{ env.PROJECT_DIR }}/cloudreve_light.png
-
           # 写入 manifest.json
           cat > ${{ env.PROJECT_DIR }}/manifest.json <<'MANIFEST_EOF'
           {
