@@ -32,8 +32,14 @@ jobs:
           mv ${{ env.PROJECT_DIR }}/app/bin/cloudreve ${{ env.PROJECT_DIR }}/app/bin/cloudreve-arm64
           rm *.tar.gz
 
-      - name: Make fnpack executable
-        run: chmod +x ./fnpack
+      # 只需要 replace 原来的 "Make fnpack executable" 相关步骤为：
+      - name: Download fnpack tool
+        run: |
+          wget -O fnpack https://github.com/shuangji66/buildbot/releases/latest/download/fnpack-linux-amd64
+          chmod +x fnpack
+      
+      - name: Build multi-arch fpk
+        run: ./fnpack build ${{ env.PROJECT_DIR }}
 
       - name: Build multi-arch fpk
         run: ./fnpack build ${{ env.PROJECT_DIR }}
