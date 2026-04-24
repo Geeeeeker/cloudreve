@@ -117,6 +117,24 @@ jobs:
           EOF
           chmod +x ${{ env.PROJECT_DIR }}/cmd/install_callback
 
+      - name: Create cmd/uninstall_init
+        shell: bash
+        run: |
+          cat > ${{ env.PROJECT_DIR }}/cmd/uninstall_init <<'EOF'
+          #!/bin/sh
+          exit 0
+          EOF
+          chmod +x ${{ env.PROJECT_DIR }}/cmd/uninstall_init
+
+      - name: Create cmd/uninstall_callback
+        shell: bash
+        run: |
+          cat > ${{ env.PROJECT_DIR }}/cmd/uninstall_callback <<'EOF'
+          #!/bin/sh
+          exit 0
+          EOF
+          chmod +x ${{ env.PROJECT_DIR }}/cmd/uninstall_callback
+
       - name: Create config files
         shell: bash
         run: |
